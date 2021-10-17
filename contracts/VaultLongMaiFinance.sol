@@ -2,16 +2,31 @@
 pragma solidity >=0.8.9;
 
 contract VaultLongMaiFinance {
+    mapping(address => mapping(address => uint256[])) private vaults;
+
     modifier ownsVault(uint256 vaultId) {
         //Will check if the caller actually owns the vaultId passed in parameter
         _;
     }
 
+    event VaultCreated(uint256 vaultId);
+
     constructor() {}
 
-    function createVault(address token) public {
+    function createVault(address vaultAddress) public {
         //Will call MAI finance's createVault function
-        //After the creation it will store the vaultId in the contract with a mapping with the user's address
+        //After the creation it will store the vaultId in the contract mapping the user's address
+        bytes memory payload = abi.encodeWithSignature("createVault()");
+        (bool success, bytes memory returnData) = address(vaultAddress).call(
+            payload
+        );
+
+        require(success);
+
+        uint256 vaultId = abi.decode(returnData, (uint256));
+        vaults[msg.sender][vaultAddress].push(vaultId);
+
+        emit VaultCreated(vaultId);
     }
 
     function depositInVault(uint256 vaultId) public payable ownsVault(vaultId) {
@@ -48,7 +63,12 @@ contract VaultLongMaiFinance {
         //Well call MAI finance's repay function to repay the user's debt in its MAI finance's vault
     }
 
-    function getUserVaultList() public view returns (uint256[] memory) {
+    function getUserVaultList(address vaultAddress)
+        public
+        view
+        returns (uint256[] memory)
+    {
         //Return the list of vaults the user has created
+        return vaults[msg.sender][vaultAddress];
     }
 }
