@@ -2,10 +2,10 @@ import React from "react";
 
 import { ethers } from "ethers";
 import { Web3ReactProvider } from "@web3-react/core";
-import Vault from "./components/Vault";
-import UserVaults from "./components/UserVaults";
+import { Route } from "react-router-dom";
 import MetamaskConnectButton from "./components/MetamaskConnectButton";
 import { AppContextProvider } from "./AppContext";
+import Home from "./pages/Home";
 
 function getLibrary(provider) {
     return new ethers.providers.Web3Provider(provider);
@@ -18,15 +18,12 @@ const App = () => {
                 <div
                     style={{
                         display: "flex",
-                        height: 500,
                         rowGap: 40,
                         flexDirection: "column",
-                        minHeight: 100,
                     }}
                 >
                     <MetamaskConnectButton />
-                    <Vault />
-                    <UserVaults />
+                    <Route exact path="/" component={Home} />
                 </div>
             </Web3ReactProvider>
         </AppContextProvider>

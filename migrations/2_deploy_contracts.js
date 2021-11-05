@@ -1,5 +1,5 @@
-const VaultLongMaiFinance = artifacts.require("VaultLongMaiFinance");
+const LinkVaultLong = artifacts.require("LinkVaultLong.sol");
 
 module.exports = function (deployer) {
-    deployer.deploy(VaultLongMaiFinance);
+    deployer.deploy(LinkVaultLong);
 };

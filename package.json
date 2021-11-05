@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "@ethersproject/providers": "^5.5.0",
+    "@openzeppelin/contracts": "^4.3.2",
+    "bn.js": "^5.2.0",
+    "dotenv": "^10.0.0",
+    "quickswap-sdk": "^3.0.8",
+    "web3": "^1.6.0"
+  }
+}

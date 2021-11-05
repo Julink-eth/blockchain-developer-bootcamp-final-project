@@ -3,7 +3,7 @@ import styled from "styled-components";
 import Button from "react-bootstrap/Button";
 import { useWeb3React } from "@web3-react/core";
 import MMLogo from "../static/metamask-logo.svg";
-import Text from "./Text";
+import Text from "./styled/Text";
 import Card from "./Card";
 import { injected } from "../connectors";
 import { shortenAddress } from "../utils/shortenAddress";
@@ -21,7 +21,7 @@ const MetamaskConnectButton = () => {
 
     if (active) {
         return (
-            <Card style={{ width: 350 }}>
+            <Card>
                 <MetamaskLogo />
                 <Text
                     uppercase
@@ -38,10 +38,7 @@ const MetamaskConnectButton = () => {
     }
 
     return (
-        <Card
-            className="d-flex flex-row justify-content-between"
-            style={{ width: 350 }}
-        >
+        <Card className="d-flex flex-row justify-content-between">
             <MetamaskLogo />
             <Text uppercase color="green" t3 lineHeight="40px" className="mx-2">
                 Metamask
