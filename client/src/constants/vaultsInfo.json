@@ -27,6 +27,48 @@
             "vaults": {},
             "multiplicatorMax": 1.1,
             "minCollateralPercentage": 130
+        },
+        {
+            "index": 2,
+            "label": "WBTC",
+            "jsonName": "WbtcVaultLong.json",
+            "vaultIds": [],
+            "tokenAddress": "0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6",
+            "maiVaultAddress": "0x37131aEDd3da288467B6EBe9A77C523A700E6Ca1",
+            "userWalletAmount": "",
+            "allowance": "",
+            "decimals": 8,
+            "vaults": {},
+            "multiplicatorMax": 1.1,
+            "minCollateralPercentage": 130
+        },
+        {
+            "index": 3,
+            "label": "GHST",
+            "jsonName": "GhstVaultLong.json",
+            "vaultIds": [],
+            "tokenAddress": "0x385eeac5cb85a38a9a07a70c73e0a3271cfb54a7",
+            "maiVaultAddress": "0xF086dEdf6a89e7B16145b03a6CB0C0a9979F1433",
+            "userWalletAmount": "",
+            "allowance": "",
+            "decimals": 18,
+            "vaults": {},
+            "multiplicatorMax": 1.1,
+            "minCollateralPercentage": 130
+        },
+        {
+            "index": 4,
+            "label": "AAVE",
+            "jsonName": "GhstVaultLong.json",
+            "vaultIds": [],
+            "tokenAddress": "0xd6df932a45c0f255f85145f286ea0b292b21c90b",
+            "maiVaultAddress": "0x87ee36f780ae843A78D5735867bc1c13792b7b11",
+            "userWalletAmount": "",
+            "allowance": "",
+            "decimals": 18,
+            "vaults": {},
+            "multiplicatorMax": 1.1,
+            "minCollateralPercentage": 130
         }
     ]
 }

@@ -33,7 +33,7 @@ const App = () => {
                             width: "100%",
                         }}
                     >
-                        <Route exact path="/" component={Home} />
+                        <Route path="/" component={Home} />
                     </div>
                 </div>
             </Web3ReactProvider>

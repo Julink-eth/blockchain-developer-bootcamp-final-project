@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useAppContext } from "../AppContext";
 import Text from "./styled/Text";
 import Notification from "./Notification";
@@ -7,13 +7,17 @@ import MoonLoader from "react-spinners/MoonLoader";
 const TransactionNotification = () => {
     const { txnStatus, setTxnStatus } = useAppContext();
     const handleOnCloseClick = () => setTxnStatus("NOT_SUBMITTED");
+    const txnStatusRef = useRef(txnStatus);
+    txnStatusRef.current = txnStatus;
 
     useEffect(() => {
         let mounted = true;
         mounted &&
             (txnStatus === "COMPLETE" || txnStatus === "ERROR") &&
             setTimeout(() => {
-                setTxnStatus("NOT_SUBMITTED");
+                if (txnStatusRef.current !== "LOADING") {
+                    setTxnStatus("NOT_SUBMITTED");
+                }
             }, 5000);
         return () => {
             mounted = false;
