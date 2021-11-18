@@ -1,0 +1,183 @@
+{
+  "contractName": "IVaultLongMaiFinance",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "claimRewards",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "metadata": "{\"compiler\":{\"version\":\"0.8.9+commit.e5eed63a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"claimRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"project:/contracts/interfaces/IVaultLongMaiFinance.sol\":\"IVaultLongMaiFinance\"},\"evmVersion\":\"byzantium\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"project:/contracts/interfaces/IVaultLongMaiFinance.sol\":{\"keccak256\":\"0x7222795570a5de9da33e43be251162cff2037b106975e7e3f0858c1b6c4104c0\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://746be2f873b74a85e0a10f7b5a8f16e68a708963d3ceceeecf1439ffd6e62157\",\"dweb:/ipfs/QmdZaFJVb25ttF2V3RYC52yYZAXHi7teR3i6VDcdTqaXqZ\"]}},\"version\":1}",
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "immutableReferences": {},
+  "generatedSources": [],
+  "deployedGeneratedSources": [],
+  "sourceMap": "",
+  "deployedSourceMap": "",
+  "source": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.9;\n\ninterface IVaultLongMaiFinance {\n    function claimRewards() external;\n}\n",
+  "sourcePath": "/media/nello/Data/dev/blockchain/Consensys/blockchain-developer-bootcamp-final-project/contracts/interfaces/IVaultLongMaiFinance.sol",
+  "ast": {
+    "absolutePath": "project:/contracts/interfaces/IVaultLongMaiFinance.sol",
+    "exportedSymbols": {
+      "IVaultLongMaiFinance": [
+        2886
+      ]
+    },
+    "id": 2887,
+    "license": "MIT",
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 2882,
+        "literals": [
+          "solidity",
+          "^",
+          "0.8",
+          ".9"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "32:23:8"
+      },
+      {
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IVaultLongMaiFinance",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": false,
+        "id": 2886,
+        "linearizedBaseContracts": [
+          2886
+        ],
+        "name": "IVaultLongMaiFinance",
+        "nameLocation": "67:20:8",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "functionSelector": "372500ab",
+            "id": 2885,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "claimRewards",
+            "nameLocation": "103:12:8",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 2883,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "115:2:8"
+            },
+            "returnParameters": {
+              "id": 2884,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "126:0:8"
+            },
+            "scope": 2886,
+            "src": "94:33:8",
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "scope": 2887,
+        "src": "57:72:8",
+        "usedErrors": []
+      }
+    ],
+    "src": "32:98:8"
+  },
+  "legacyAST": {
+    "absolutePath": "project:/contracts/interfaces/IVaultLongMaiFinance.sol",
+    "exportedSymbols": {
+      "IVaultLongMaiFinance": [
+        2886
+      ]
+    },
+    "id": 2887,
+    "license": "MIT",
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 2882,
+        "literals": [
+          "solidity",
+          "^",
+          "0.8",
+          ".9"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "32:23:8"
+      },
+      {
+        "abstract": false,
+        "baseContracts": [],
+        "canonicalName": "IVaultLongMaiFinance",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "fullyImplemented": false,
+        "id": 2886,
+        "linearizedBaseContracts": [
+          2886
+        ],
+        "name": "IVaultLongMaiFinance",
+        "nameLocation": "67:20:8",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "functionSelector": "372500ab",
+            "id": 2885,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "claimRewards",
+            "nameLocation": "103:12:8",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 2883,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "115:2:8"
+            },
+            "returnParameters": {
+              "id": 2884,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "126:0:8"
+            },
+            "scope": 2886,
+            "src": "94:33:8",
+            "stateMutability": "nonpayable",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "scope": 2887,
+        "src": "57:72:8",
+        "usedErrors": []
+      }
+    ],
+    "src": "32:98:8"
+  },
+  "compiler": {
+    "name": "solc",
+    "version": "0.8.9+commit.e5eed63a.Emscripten.clang"
+  },
+  "networks": {},
+  "schemaVersion": "3.4.3",
+  "updatedAt": "2021-11-16T02:29:57.013Z",
+  "devdoc": {
+    "kind": "dev",
+    "methods": {},
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "version": 1
+  }
+}

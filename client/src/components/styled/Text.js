@@ -46,7 +46,7 @@ const getTransform = (p) => {
 };
 
 const Text = styled.span`
-    font-family: ${(p) => p.fontFamily || "Noto Sans"};
+    font-family: ${(p) => p.fontFamily || "Inter custom,sans-serif"};
     text-decoration: ${(p) => (p.underline ? "underline" : "")};
     text-transform: ${getTransform};
     cursor: ${(p) => (p.pointer ? "pointer" : "")};

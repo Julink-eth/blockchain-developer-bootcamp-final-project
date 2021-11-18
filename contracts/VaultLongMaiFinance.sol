@@ -6,52 +6,67 @@ import {FlashLoanReceiverBase} from "./FlashLoanReceiverBase.sol";
 import {ILendingPoolAddressesProvider} from "./interfaces/Interfaces.sol";
 import {IUniswapV2Router} from "./interfaces/Uniswap.sol";
 import {IERC20StableCoin} from "./interfaces/MaiFinance.sol";
+import {IVaultLongMaiFinance} from "./interfaces/IVaultLongMaiFinance.sol";
 
 contract VaultLongMaiFinance is FlashLoanReceiverBase {
     using SafeERC20 for IERC20;
 
-    //Using Aave's lending pool
+    //Using Aave's lending pool for the flash loan
     ILendingPoolAddressesProvider LENDING_POOL_PRODIVER =
         ILendingPoolAddressesProvider(
             0xd05e3E715d945B59290df0ae8eF85c1BdB684744
         );
     address USDC_ADDRESS = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174;
     address MAI_ADDRESS = 0xa3Fa99A148fA48D14Ed51d610c367C61876997F1;
+    address WMATIC_ADDRESS = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
 
     //Swaps are executed on Quickswap
     address QUICKSWAP_ROUTER = 0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff;
 
-    //The list of vault ids owned by a user
+    //The list of vault ids(Ids returned by Mai finance when creating the vault) owned by a user
     mapping(address => uint256[]) private vaults;
-    //The list of MAI finance vaults addresses supported
+    //The address of the mai vault initialized in the constructor
     address public maiVault;
-    //The collateral used
+    //The collateral used in this vault
     address public collateral;
-    //The list of current deposits in the contract for a user by vault Ids
-    mapping(address => mapping(uint256 => uint256)) public deposits;
 
+    /**
+     Will check if the caller actually owns the vaultId passed in parameter
+    */
     modifier ownsVault(uint256 vaultId, address sender) {
-        //Will check if the caller actually owns the vaultId passed in parameter
         getVaultIndex(vaultId, sender);
         _;
     }
 
-    modifier hasCollateral(uint256 vaultId, uint256 amount) {
-        //Will check if the caller has collateral
-        uint256 amountCollateral = deposits[msg.sender][vaultId];
-        require(amountCollateral >= amount, "AMOUNT_INSUFFICIENT");
+    /**
+     Will revert if amount is not bigger than 0
+    */
+    modifier positiveAmount(uint256 amount) {
+        require(amount > 0, "POSITIVE_AMOUNT_REQUIRED");
         _;
     }
 
     event VaultCreated(uint256 vaultId);
 
-    event DepositInVault(uint256 vaultId, uint256 amount);
-
-    event BorrowMai(uint256 vaultId, uint256 amount);
-
-    event DepositCollateral(uint256 vaultId, uint256 amount);
-
     event WithdrawCollateral(uint256 vaultId, uint256 amount);
+
+    event LongAsset(
+        uint256 vaultId,
+        uint256 longAmount,
+        uint256 initialDeposit
+    );
+
+    event ReduceLong(uint256 vaultId, uint256 debtAmountToReduce);
+
+    event ClaimRewards(uint256 amountClaimed, uint256 nextClaimableBlock);
+
+    event Deposit(uint256 vaultId, uint256 amount);
+
+    event Repay(uint256 vaultId, uint256 amount);
+
+    event RewardAdded(uint256 reward);
+
+    event RewardPaid(address indexed user, uint256 reward);
 
     constructor(address _collateral, address _maiVault)
         FlashLoanReceiverBase(LENDING_POOL_PRODIVER)
@@ -60,7 +75,7 @@ contract VaultLongMaiFinance is FlashLoanReceiverBase {
         collateral = _collateral;
     }
 
-    function createVault() public {
+    function createVault() external {
         //Will call MAI finance's createVault function
         //After the creation it will store the vaultId in the contract mapping the user's address
         IERC20StableCoin vault = IERC20StableCoin(maiVault);
@@ -71,132 +86,155 @@ contract VaultLongMaiFinance is FlashLoanReceiverBase {
         emit VaultCreated(vaultId);
     }
 
+    /**
+     Deposit funds from the user to the contract, then the contract deposit the funds to the chosen Mai vault
+     */
+    function deposit(uint256 vaultId, uint256 amount)
+        external
+        ownsVault(vaultId, msg.sender)
+        positiveAmount(amount)
+    {
+        require(amount > 0, "AMOUNT_ZERO");
+        IERC20(collateral).transferFrom(msg.sender, address(this), amount);
+        depositInVault(vaultId, amount);
+
+        emit Deposit(vaultId, amount);
+    }
+
+    /**
+     Deposit the collateral from the contract to the Mai finance vault, this is only called after
+     the user has deposited the funds in the contract
+     */
     function depositInVault(uint256 vaultId, uint256 amount) private {
-        //Will get the funds from the user's wallet then will call MAI finance's deposit function
+        //To save on gas we check that the deposit amont is bigger than 0
         if (amount > 0) {
             IERC20(collateral).approve(maiVault, amount);
-            IERC20StableCoin vault = IERC20StableCoin(maiVault);
-            vault.depositCollateral(vaultId, amount);
-
-            emit DepositInVault(vaultId, amount);
+            IERC20StableCoin(maiVault).depositCollateral(vaultId, amount);
         }
     }
 
-    function depositCollateral(uint256 vaultId, uint256 amount)
+    /**
+     Withdraw the collateral amount from the Mai vault calling withdrawFromVault(),
+     then sends the fund back to the user
+     */
+    function withdrawCollateral(uint256 vaultId, uint256 amount)
         external
         ownsVault(vaultId, msg.sender)
+        positiveAmount(amount)
     {
-        //Deposit collateral in the contract (Not yet in Mai finance)
-        require(amount > 0);
-        IERC20 collateralContract = IERC20(collateral);
-        collateralContract.safeTransferFrom(msg.sender, address(this), amount);
-        addDeposit(msg.sender, vaultId, amount);
-
-        emit DepositCollateral(vaultId, amount);
-    }
-
-    function withdrawFromVault(uint256 vaultId, uint256 amount)
-        public
-        ownsVault(vaultId, msg.sender)
-    {
-        //Will call MAI finance's withdraw function and then will send the funds to the user
-        IERC20StableCoin vault = IERC20StableCoin(maiVault);
-        vault.withdrawCollateral(vaultId, amount);
-        addDeposit(msg.sender, vaultId, amount);
-    }
-
-    function withdrawCollateral(uint256 vaultId, uint256 amount)
-        public
-        ownsVault(vaultId, msg.sender)
-        hasCollateral(vaultId, amount)
-    {
-        //Will withdraw the amount of collateral from this contract to the user's wallet
+        //First withdraw from mai's vault
+        withdrawFromVault(vaultId, amount);
+        //Then withdraw the amount of collateral from this contract to the user's wallet
         IERC20(collateral).approve(address(this), amount);
         IERC20(collateral).safeTransferFrom(address(this), msg.sender, amount);
-        removeDeposit(msg.sender, vaultId, amount);
 
         emit WithdrawCollateral(vaultId, amount);
     }
 
-    function removeDeposit(
-        address sender,
-        uint256 vaultId,
-        uint256 amount
-    ) private {
-        deposits[sender][vaultId] -= amount;
+    /**
+     Withdraw the collateral amount from the Mai vault to the contract, only called by the contract itself
+     */
+    function withdrawFromVault(uint256 vaultId, uint256 amount) private {
+        IERC20StableCoin(maiVault).withdrawCollateral(vaultId, amount);
     }
 
-    function addDeposit(
-        address sender,
+    /**
+     The functions borrow the required amount of USDC to buy the chosen amount of collateral to long,
+     will repay the borrowed USDC by borrowing MAI from Mai finance's vault, the user ends up with a
+     long position and a debt in MAI
+     Credits to Abracadra finance for the idea
+    */
+    function longAsset(
         uint256 vaultId,
-        uint256 amount
-    ) private {
-        deposits[sender][vaultId] += amount;
-    }
-
-    function longAsset(uint256 vaultId, uint256 longAmount)
-        public
-        ownsVault(vaultId, msg.sender)
-    {
-        //Will create/modify a leverage position using a flash loan (Thanks Abracadra finance for the idea)
-
-        uint256 currentUserCollateral = getUserDeposit(msg.sender, vaultId);
-        uint256 maxCollateral = 200 - getMinimumCollateralPercentage();
-
+        uint256 longAmount,
+        uint256 initialDeposit
+    ) external ownsVault(vaultId, msg.sender) {
         //For each asset there a different maximum amount a user can leverage
-        //We make sure the leverage passed is below the maximum
+        //We make sure the leverage amount is below the maximum
         require(
-            (longAmount * 100) / (longAmount + currentUserCollateral) <
-                maxCollateral,
+            initialDeposit > 0 &&
+                ((longAmount + initialDeposit) * 100) / longAmount >=
+                getMinimumCollateralPercentage(),
             "NOT_ENOUGH_COLLATERAL"
         );
 
+        IERC20(collateral).safeTransferFrom(
+            msg.sender,
+            address(this),
+            initialDeposit
+        );
+
         //Flash loan the number required of USDC
-        callFlashLoan(vaultId, longAmount, 0);
+        callFlashLoan(vaultId, longAmount, 0, initialDeposit);
         //The next operations happen in the function "executeOperation" which is called by
         //callFlashLoan once the asset the contract has received the loaned asset
+
+        emit LongAsset(vaultId, longAmount, initialDeposit);
     }
 
+    /**
+     Reduce the long amount by doing another flash loan in USDC to buy the MAI required to repay the desired amount,
+     the contract will then withdraw the required collateral to repay the USDC debt
+    */
     function reduceLong(uint256 vaultId, uint256 debtAmountToReduce)
-        public
+        external
         ownsVault(vaultId, msg.sender)
     {
-        //Will reduce/close a leverage position using a flash loan (Thanks Abracadra finance for the idea)
-
-        //Flash loan the number required of USDC
-        callFlashLoan(vaultId, debtAmountToReduce, 1);
+        //Flash loan the number required of USDC, here the last argument is not used
+        callFlashLoan(vaultId, debtAmountToReduce, 1, 0);
         //The next operations happen in the function "executeOperation" which is called by
         //callFlashLoan once the asset the contract has received the loaned asset
+
+        emit ReduceLong(vaultId, debtAmountToReduce);
     }
 
+    /**
+     Borrow the required amount of MAI from the wanted Mai finance vault, only callable by
+     the contract
+     */
     function borrowMai(uint256 vaultId, uint256 amountToBorrow) private {
-        //Will call MAI finance's borrow function in the vault chosen
-        require(amountToBorrow > 0);
-
-        IERC20StableCoin vault = IERC20StableCoin(maiVault);
-        vault.borrowToken(vaultId, amountToBorrow);
-
-        emit BorrowMai(vaultId, amountToBorrow);
+        IERC20StableCoin(maiVault).borrowToken(vaultId, amountToBorrow);
     }
 
+    /**
+     Repay the wanted amount of MAI from the user wallet to the chosen vault
+     */
+    function repay(uint256 vaultId, uint256 amountToRepay)
+        external
+        ownsVault(vaultId, msg.sender)
+        positiveAmount(amountToRepay)
+    {
+        uint256 userDebt = IERC20StableCoin(maiVault).vaultDebt(vaultId);
+        require(amountToRepay <= userDebt, "AMOUNT_TOO_BIG");
+        IERC20(MAI_ADDRESS).safeTransferFrom(
+            msg.sender,
+            address(this),
+            amountToRepay
+        );
+        repayDebt(vaultId, amountToRepay);
+
+        emit Repay(vaultId, amountToRepay);
+    }
+
+    /**
+     Repay the debt amount in MAI, only callable by
+     the contract
+     */
     function repayDebt(uint256 vaultId, uint256 amountToRepay) private {
-        if (amountToRepay > 0) {
-            //Well call MAI finance's repay function to repay the user's debt in its MAI finance's vault
-
-            IERC20(MAI_ADDRESS).approve(maiVault, amountToRepay);
-
-            IERC20StableCoin vault = IERC20StableCoin(maiVault);
-            vault.payBackToken(vaultId, amountToRepay);
-        }
+        IERC20(MAI_ADDRESS).approve(maiVault, amountToRepay);
+        IERC20StableCoin(maiVault).payBackToken(vaultId, amountToRepay);
     }
 
+    /**
+     Get all the vault Ids for the sender address
+     */
     function getUserVaultList() public view returns (uint256[] memory) {
         //Return the list of vaults the user has created
         return vaults[msg.sender];
     }
 
     /**
-        This function is called after the contract has received the flash loaned amount
+     This function is called after the contract has received the flash loaned amount
      */
     function executeOperation(
         address[] calldata assets,
@@ -205,9 +243,9 @@ contract VaultLongMaiFinance is FlashLoanReceiverBase {
         address initiator,
         bytes calldata params
     ) external override returns (bool) {
-        (, , uint8 operation, ) = abi.decode(
+        (, , uint8 operation, , ) = abi.decode(
             params,
-            (uint256, address, uint8, uint256)
+            (uint256, address, uint8, uint256, uint256)
         );
         //
         // This contract now has the funds requested.
@@ -221,7 +259,8 @@ contract VaultLongMaiFinance is FlashLoanReceiverBase {
         } else if (operation == 1) {
             reduceOperation(amountFL, amountFLWithFees, params);
         }
-        // Approve the LendingPool contract allowance to *pull* the owed amount //The flashloan amount will be reimbursed at the end of this function
+        // Approve the LendingPool contract allowance to *pull* the owed amount
+        //The flashloan amount will be reimbursed at the end of this function
         IERC20(tokenFL).approve(address(LENDING_POOL), amountFLWithFees);
 
         return true;
@@ -232,12 +271,15 @@ contract VaultLongMaiFinance is FlashLoanReceiverBase {
         uint256 amountFLWithFees,
         bytes calldata params
     ) private {
-        (uint256 vaultId, address sender, , uint256 amountWanted) = abi.decode(
-            params,
-            (uint256, address, uint8, uint256)
-        );
+        (
+            uint256 vaultId,
+            ,
+            ,
+            uint256 amountWanted,
+            uint256 initialDeposit
+        ) = abi.decode(params, (uint256, address, uint8, uint256, uint256));
 
-        //Use borrowed USDC to swap for the longed asset
+        //Use borrowed USDC to swap for the longed collateral
         IERC20(USDC_ADDRESS).approve(QUICKSWAP_ROUTER, amountFL);
         uint256[] memory amountsResult = IUniswapV2Router(QUICKSWAP_ROUTER)
             .swapTokensForExactTokens(
@@ -251,19 +293,15 @@ contract VaultLongMaiFinance is FlashLoanReceiverBase {
         //If we have some USDC left over
         amountFLWithFees -= (amountFL - amountsResult[0]);
 
-        uint256 collateralTotal = amountWanted +
-            getUserDeposit(sender, vaultId);
+        uint256 collateralTotal = amountWanted + initialDeposit;
 
-        //Deposit all the link available for this user to MAI finance
+        //Deposit all the collateral available for this user to MAI finance
         depositInVault(vaultId, collateralTotal);
-
-        //Update user deposit in this contract, we use all the available collateral for this vault
-        removeDeposit(sender, vaultId, getUserDeposit(sender, vaultId));
 
         //Borrow the number of MAI needed to reimburse the flash loan + fees
         uint256 amountToBorrow = getAmountInMin(
-            USDC_ADDRESS,
             MAI_ADDRESS,
+            USDC_ADDRESS,
             amountFLWithFees
         );
         borrowMai(vaultId, amountToBorrow);
@@ -312,13 +350,12 @@ contract VaultLongMaiFinance is FlashLoanReceiverBase {
 
         //Withdraw required collateral from the vault to repay the flash loan
         uint256 amountInMax = getAmountInMin(
-            USDC_ADDRESS,
             collateral,
+            USDC_ADDRESS,
             amountFLWithFees
         );
 
-        IERC20StableCoin vault = IERC20StableCoin(maiVault);
-        vault.withdrawCollateral(vaultId, amountInMax);
+        IERC20StableCoin(maiVault).withdrawCollateral(vaultId, amountInMax);
 
         //Swap the collateral for USDC to repay the loan + premium
         IERC20(collateral).approve(QUICKSWAP_ROUTER, amountInMax);
@@ -339,21 +376,22 @@ contract VaultLongMaiFinance is FlashLoanReceiverBase {
     function callFlashLoan(
         uint256 vaultId,
         uint256 amountWanted,
-        uint8 operation
-    ) internal {
-        //Quote quickswap to know how much USDC we need to buy the right number of collateral asset
+        uint8 operation,
+        uint256 initialDeposit
+    ) private {
+        //Quote quickswap to know how much USDC we need to buy the right amount of collateral asset
         //We want to long an asset so we get the amount of USDC we need to get the desired amount of that asset
         uint256 amountInMin = getAmountInMin(
-            collateral,
             USDC_ADDRESS,
+            collateral,
             amountWanted
         );
 
         if (operation == 1) {
             //We want to repay the MAI debt so we get the amount of USDC we need to get the MAI desired to be repay
             amountInMin = getAmountInMin(
-                MAI_ADDRESS,
                 USDC_ADDRESS,
+                MAI_ADDRESS,
                 amountWanted
             );
         }
@@ -368,12 +406,13 @@ contract VaultLongMaiFinance is FlashLoanReceiverBase {
         modes[0] = 0;
 
         address onBehalfOf = address(this);
-        //Last parameter is operation code (0 = LONG, 1 = REDUCE)
+        //Parameter operation code (0 = LONG, 1 = REDUCE)
         bytes memory params = abi.encode(
             vaultId,
             msg.sender,
             operation,
-            amountWanted
+            amountWanted,
+            initialDeposit
         );
         uint16 referralCode = 0;
         LENDING_POOL.flashLoan(
@@ -389,69 +428,135 @@ contract VaultLongMaiFinance is FlashLoanReceiverBase {
 
     //HELPERS view/pure functions
 
+    /**
+     Get the minimum collateral percentage for this Mai vault type
+     */
     function getMinimumCollateralPercentage() public view returns (uint256) {
-        IERC20StableCoin vault = IERC20StableCoin(maiVault);
-        return vault._minimumCollateralPercentage();
+        return IERC20StableCoin(maiVault)._minimumCollateralPercentage();
     }
 
-    //this function will return the minimum amount from a swap
-    //input the 3 parameters below and it will return the minimum amount out
+    /**
+     This function will give the multiplicator maximum one user can long an asset
+     The result is given multiplied by 100 to keep 2 decimals precision, the caller needs to devide by 100
+    */
+    function getMultiplicatorMax100th() public view returns (uint256) {
+        uint256 collateralThreshold = getMinimumCollateralPercentage() - 100;
+        //The +1 is to keep a safety to handle the swap slippage that could occur
+        //when longing an asset
+        return 10000 / (collateralThreshold + 1);
+    }
+
+    /**
+     This function will return the minimum amount out from a swap
+     */
     function getAmountOutMin(
         address _tokenIn,
         address _tokenOut,
         uint256 _amountIn
-    ) internal view returns (uint256) {
-        //path is an array of addresses.
+    ) public view returns (uint256) {
         address[] memory path;
 
-        path = new address[](2);
-        path[0] = _tokenIn;
-        path[1] = _tokenOut;
+        path = getPathSwap(_tokenIn, _tokenOut);
 
         uint256[] memory amountOutMins = IUniswapV2Router(QUICKSWAP_ROUTER)
             .getAmountsOut(_amountIn, path);
         return amountOutMins[path.length - 1];
     }
 
-    //this function will return the minimum amount for a swap
-    //input the 3 parameters below and it will return the minimum amount in
+    /**
+     This function will return the minimum amount in for a swap
+     */
     function getAmountInMin(
-        address _tokenOut,
         address _tokenIn,
+        address _tokenOut,
         uint256 _amountOut
-    ) internal view returns (uint256) {
-        //path is an array of addresses.
+    ) public view returns (uint256) {
         address[] memory path;
 
-        path = new address[](2);
-        path[0] = _tokenIn;
-        path[1] = _tokenOut;
+        path = getPathSwap(_tokenIn, _tokenOut);
 
         uint256[] memory amountInMins = IUniswapV2Router(QUICKSWAP_ROUTER)
             .getAmountsIn(_amountOut, path);
         return amountInMins[0];
     }
 
-    function getUserDeposit(address userAddress, uint256 vaultId)
+    /**
+     Returns an estimate of MAI amount to borrow to create a new long
+     */
+    function getMAIDebtForAmount(uint256 amount) public view returns (uint256) {
+        //path is an array of addresses.
+        address[] memory path;
+
+        path = new address[](5);
+        path[0] = MAI_ADDRESS;
+        path[1] = WMATIC_ADDRESS;
+        path[2] = USDC_ADDRESS;
+        path[3] = WMATIC_ADDRESS;
+        path[4] = collateral;
+
+        uint256[] memory amountInMins = IUniswapV2Router(QUICKSWAP_ROUTER)
+            .getAmountsIn(amount, path);
+        return amountInMins[0];
+    }
+
+    /**
+     This will return the max amount of collateral it is possible to withdraw with the current debt
+     */
+    function getMaxWithdrawableCollateral(uint256 vaultId)
         public
         view
         returns (uint256)
     {
-        return deposits[userAddress][vaultId];
+        IERC20StableCoin vault = IERC20StableCoin(maiVault);
+        uint256 debt = vault.vaultDebt(vaultId);
+        uint256 vautTotalCollateral = vault.vaultCollateral(vaultId);
+        if (debt == 0) {
+            return vautTotalCollateral;
+        }
+        uint256 mimumCollateralPercentage = getMinimumCollateralPercentage();
+        uint256 currentCollateralPercentage = vault.checkCollateralPercentage(
+            vaultId
+        );
+        uint256 collateralTotalValue = debt * currentCollateralPercentage;
+        uint256 collateralUnitValue = collateralTotalValue /
+            vautTotalCollateral;
+        uint256 maxBorrowableUSDValue = collateralTotalValue /
+            mimumCollateralPercentage;
+        uint256 leftToBorrowUSDValue = maxBorrowableUSDValue - debt;
+        uint256 withdrawableCollateralMax = (leftToBorrowUSDValue /
+            collateralUnitValue) * mimumCollateralPercentage;
+
+        return withdrawableCollateralMax;
     }
 
+    /**
+     Get the path for the 2 tokens passed in parameters, since we use Quickswap for the swaps,
+     will go through WMATIC token to create the swap
+    */
     function getPathSwap(address token1, address token2)
-        internal
-        pure
+        public
+        view
         returns (address[] memory)
     {
-        address[] memory path = new address[](2);
-        path[0] = token1;
-        path[1] = token2;
+        if (token1 == WMATIC_ADDRESS || token2 == WMATIC_ADDRESS) {
+            address[] memory path = new address[](2);
+            path[0] = token1;
+            path[1] = token2;
 
-        return path;
+            return path;
+        }
+
+        address[] memory pathWMATIC = new address[](3);
+        pathWMATIC[0] = token1;
+        pathWMATIC[1] = WMATIC_ADDRESS;
+        pathWMATIC[2] = token2;
+
+        return pathWMATIC;
     }
 
+    /**
+     Get the vault index for the vault Id and sender address passed in parameters
+     */
     function getVaultIndex(uint256 vaultId, address sender)
         private
         view

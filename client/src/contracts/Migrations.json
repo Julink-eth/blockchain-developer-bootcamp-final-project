@@ -2317,12 +2317,12 @@
     "31337": {
       "events": {},
       "links": {},
-      "address": "0xD13ebb5C39fB00C06122827E1cbD389930C9E0E3",
-      "transactionHash": "0xeb01d667c9f0bcfdeeeba78ade7d10f35b74be1c4d7675f7941a2ee7671d9d69"
+      "address": "0xB349FB172D6D5f693b0aA1C6eEc4c61cFd6846f4",
+      "transactionHash": "0x006ede70cc720404224e464333b16378e5d9975a059fec951daeb7a839632905"
     }
   },
   "schemaVersion": "3.4.3",
-  "updatedAt": "2021-11-03T16:17:56.649Z",
+  "updatedAt": "2021-11-17T23:35:39.509Z",
   "networkType": "ethereum",
   "devdoc": {
     "kind": "dev",

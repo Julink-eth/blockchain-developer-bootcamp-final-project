@@ -1,6 +1,6 @@
 import React from "react";
 import { useWeb3React } from "@web3-react/core";
-import VaultTypeCard from "../../components/VaultTypeCard";
+import VaultTypeCard from "./VaultTypeCard";
 import { useAppContext } from "../../AppContext";
 
 const Home = () => {
@@ -8,7 +8,13 @@ const Home = () => {
     const { userVaults } = useAppContext();
 
     return (
-        <>
+        <div
+            style={{
+                display: "flex",
+                rowGap: 30,
+                flexDirection: "column",
+            }}
+        >
             {active &&
                 userVaults.map((userVault) => {
                     return (
@@ -18,7 +24,7 @@ const Home = () => {
                         />
                     );
                 })}
-        </>
+        </div>
     );
 };
 

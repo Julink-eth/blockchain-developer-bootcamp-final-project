@@ -17,7 +17,7 @@ contract("LinkVaultLong", function (accounts) {
     web3 = new Web3(currentProvider);
 
     const amountBase = web3.utils.toWei("0.001");
-    const amountToLong = web3.utils.toWei("0.0023");
+    const amountToLong = web3.utils.toWei("0.0013");
 
     it("should assert true", async function () {
         await LinkVaultLong.deployed();
@@ -47,9 +47,8 @@ contract("LinkVaultLong", function (accounts) {
         return assert.isTrue(results.length > 0);
     });
 
-    it("should be able to deposit funds to the vault", async function () {
+    it("should be able to long an asset on a specific vault", async function () {
         //First swap some token for some link and approve our contracts to spend the token
-        const amountToDeposit = amountBase;
         const amountToGet = web3.utils
             .toBN(amountBase)
             .mul(new BN(10))
@@ -71,7 +70,6 @@ contract("LinkVaultLong", function (accounts) {
             amountToGet
         );
 
-        //Then create a Vault and deposit the token acquired in the vault created
         const contract = await LinkVaultLong.deployed();
 
         await utils.approveToken(
@@ -80,97 +78,27 @@ contract("LinkVaultLong", function (accounts) {
             contract.address
         );
 
-        const results = await contract.getUserVaultList();
-        const firstVaultId = results[0].toString();
-
-        await contract.depositCollateral(firstVaultId, amountToDeposit);
-
-        //Deposit a second time to check if the amount adds up
-        await contract.depositCollateral(firstVaultId, amountToDeposit);
-
-        //Get the final amount after the 2 deposits
-        const currentDeposit = await contract.getUserDeposit(
-            accounts[0],
-            firstVaultId
-        );
-
-        const depositToCheck = web3.utils
-            .toBN(amountToDeposit)
-            .mul(new BN(2))
-            .toString();
-
-        return assert.isTrue(currentDeposit.toString() === depositToCheck);
-    });
-
-    it("should not be able to withdraw more collateral than the user deposited", async function () {
-        const contract = await LinkVaultLong.deployed();
-        const results = await contract.getUserVaultList();
-        const firstVaultId = results[0].toString();
-        const amountToWithdraw = web3.utils.toWei("1");
-
-        try {
-            await contract.withdrawCollateral(firstVaultId, amountToWithdraw);
-        } catch (err) {
-            return assert.isTrue(err.reason === "AMOUNT_INSUFFICIENT");
-        }
-
-        return assert.isTrue(false);
-    });
-
-    it("should be able to withdraw collateral", async function () {
-        const contract = await LinkVaultLong.deployed();
-        const results = await contract.getUserVaultList();
-        const firstVaultId = results[0].toString();
-        const linkAddress = await contract.collateral();
-        const erc20Contract = new web3.eth.Contract(erc20ABI, linkAddress);
-
-        const balanceUserBefore = await erc20Contract.methods
-            .balanceOf(accounts[0])
-            .call();
-        const balanceBeforeBN = web3.utils.toBN(balanceUserBefore.toString());
-
-        const beforeWithdraw = await contract.getUserDeposit(
-            accounts[0],
-            firstVaultId
-        );
-
-        await contract.withdrawCollateral(firstVaultId, amountBase);
-
-        const afterWithdraw = await contract.getUserDeposit(
-            accounts[0],
-            firstVaultId
-        );
-
-        const balanceUserAfter = await erc20Contract.methods
-            .balanceOf(accounts[0])
-            .call();
-        const balanceAfterBN = web3.utils.toBN(balanceUserAfter.toString());
-        const expected = balanceBeforeBN.add(web3.utils.toBN(amountBase));
-
-        return assert.isTrue(
-            afterWithdraw < beforeWithdraw &&
-                balanceAfterBN.toString() === expected.toString()
-        );
-    });
-
-    it("should be able to long an asset on a specific vault", async function () {
-        const contract = await LinkVaultLong.deployed();
+        await contract.createVault();
         const maiVaultAddr = await contract.maiVault();
         const vaultList = await contract.getUserVaultList();
         const firstVaultId = vaultList[0].toString();
 
-        await contract.longAsset(firstVaultId, amountToLong);
+        await contract.longAsset(firstVaultId, amountToLong, amountBase);
 
         const maiContract = new web3.eth.Contract(maiVaultABI, maiVaultAddr);
         const collateralInMai = await maiContract.methods
             .vaultCollateral(firstVaultId)
             .call();
 
-        const toCheck = web3.utils.toBN(amountBase);
+        const toCheck = web3.utils
+            .toBN(amountToLong)
+            .add(web3.utils.toBN(amountBase));
 
         const collateralInMaiBN = web3.utils.toBN(collateralInMai);
 
-        return assert.isTrue(collateralInMaiBN > toCheck);
+        return assert.isTrue(
+            collateralInMaiBN.toString() === toCheck.toString()
+        );
     });
 
     it("should be able to reduce by 50% the open long on a specific vault", async function () {
@@ -201,7 +129,7 @@ contract("LinkVaultLong", function (accounts) {
         return assert.isTrue(debtAmountBN > newDebtAmountBN);
     });
 
-    it("should be able to repay the full amount of debt and then withdraw the collateral from Mai finance", async function () {
+    it("should be able to repay the full debt amount", async function () {
         const contract = await LinkVaultLong.deployed();
         const maiVaultAddr = await contract.maiVault();
         const vaultList = await contract.getUserVaultList();
@@ -214,25 +142,109 @@ contract("LinkVaultLong", function (accounts) {
             .call();
         const debtAmountBN = web3.utils.toBN(debtAmount);
 
-        //Close the long by reducing to debt amount to 0
-        await contract.reduceLong(firstVaultId, debtAmountBN.toString());
+        //Get the MAI to repay the debt
+        const allowance = web3.utils.toWei("11");
+        await utils.approveToken(
+            addresses.tokenAddresses.WMATIC,
+            allowance,
+            addresses.contractAddresses.QUICKSWAP
+        );
 
-        //Withdraw the full collateral from the mai vault
+        await utils.getTokens(
+            addresses.tokenAddresses.MAI,
+            web3.utils.toWei("11"),
+            debtAmountBN.toString(),
+            addresses.contractAddresses.QUICKSWAP
+        );
+
+        await utils.approveToken(
+            addresses.tokenAddresses.MAI,
+            debtAmountBN.toString(),
+            contract.address
+        );
+
+        //Close the long by reducing to debt amount to 0
+        await contract.repay(firstVaultId, debtAmountBN.toString());
+
+        const newDebtAmount = await maiContract.methods
+            .vaultDebt(firstVaultId)
+            .call();
+
+        return assert.isTrue(newDebtAmount.toString() == "0");
+    });
+
+    it("should be able to withdraw collateral", async function () {
+        const contract = await LinkVaultLong.deployed();
+        const results = await contract.getUserVaultList();
+        const firstVaultId = results[0].toString();
+        const linkAddress = await contract.collateral();
+        const erc20Contract = new web3.eth.Contract(erc20ABI, linkAddress);
+        const maiVaultAddr = await contract.maiVault();
+        const maiContract = new web3.eth.Contract(maiVaultABI, maiVaultAddr);
         const collateralInMai = await maiContract.methods
             .vaultCollateral(firstVaultId)
             .call();
 
-        await contract.withdrawFromVault(
+        const balanceUserBefore = await erc20Contract.methods
+            .balanceOf(accounts[0])
+            .call();
+        const balanceBeforeBN = web3.utils.toBN(balanceUserBefore.toString());
+
+        await contract.withdrawCollateral(
             firstVaultId,
             collateralInMai.toString()
         );
 
-        //Check user deposit in the contract
-        const userDeposit = await contract.getUserDeposit(
-            accounts[0],
-            firstVaultId
+        const balanceUserAfter = await erc20Contract.methods
+            .balanceOf(accounts[0])
+            .call();
+        const balanceAfterBN = web3.utils.toBN(balanceUserAfter.toString());
+        const expected = balanceBeforeBN.add(
+            web3.utils.toBN(collateralInMai.toString())
         );
 
-        return assert.isTrue(userDeposit == collateralInMai);
+        return assert.isTrue(balanceAfterBN.toString() === expected.toString());
+    });
+
+    it("should be able to deposit collateral", async function () {
+        const contract = await LinkVaultLong.deployed();
+        const results = await contract.getUserVaultList();
+        const firstVaultId = results[0].toString();
+        const linkAddress = await contract.collateral();
+        const erc20Contract = new web3.eth.Contract(erc20ABI, linkAddress);
+        const maiVaultAddr = await contract.maiVault();
+        const maiContract = new web3.eth.Contract(maiVaultABI, maiVaultAddr);
+        const collateralInMaiBefore = await maiContract.methods
+            .vaultCollateral(firstVaultId)
+            .call();
+        const collateralInMaiBeforeBN = web3.utils.toBN(
+            collateralInMaiBefore.toString()
+        );
+
+        const balanceUserBefore = await erc20Contract.methods
+            .balanceOf(accounts[0])
+            .call();
+        const balanceBeforeBN = web3.utils.toBN(balanceUserBefore.toString());
+
+        const toDeposit = web3.utils.toWei("0.00001");
+        await contract.deposit(firstVaultId, toDeposit);
+
+        const balanceUserAfter = await erc20Contract.methods
+            .balanceOf(accounts[0])
+            .call();
+        const balanceAfterBN = web3.utils.toBN(balanceUserAfter.toString());
+        const expected = balanceBeforeBN.sub(web3.utils.toBN(toDeposit));
+
+        const collateralInMaiAfter = await maiContract.methods
+            .vaultCollateral(firstVaultId)
+            .call();
+        const expected2 = collateralInMaiBeforeBN.add(
+            web3.utils.toBN(toDeposit)
+        );
+
+        return assert.isTrue(
+            balanceAfterBN.toString() === expected.toString() &&
+                collateralInMaiAfter.toString() === expected2.toString()
+        );
     });
 });

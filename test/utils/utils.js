@@ -9,10 +9,15 @@ const privateKey1 = process.env.TEST_WALLET_PRIVATE_KEY;
 
 //To make it easier to get some tokens before testing
 module.exports = {
-    getTokens: async (tokenAddress, maticToSpend, amountToGet) => {
+    getTokens: async (
+        tokenAddress,
+        maticToSpend,
+        amountToGet,
+        routerAddress = addresses.contractAddresses.SUSHISWAP
+    ) => {
         const exchangeContract = new web3.eth.Contract(
             sushiswapABI,
-            addresses.contractAddresses.SUSHISWAP
+            routerAddress
         );
 
         const encodedABI = exchangeContract.methods
@@ -26,7 +31,7 @@ module.exports = {
 
         const gasEstimated = await estimateGas(
             publicKey1,
-            addresses.contractAddresses.SUSHISWAP,
+            routerAddress,
             encodedABI,
             maticToSpend
         );
@@ -35,7 +40,7 @@ module.exports = {
             from: publicKey1,
             gas: gasEstimated.gasLimit,
             gasPrice: gasEstimated.gasPrice,
-            to: addresses.contractAddresses.SUSHISWAP,
+            to: routerAddress,
             data: encodedABI,
             value: maticToSpend,
         };
@@ -55,6 +60,36 @@ module.exports = {
 
         const encodedABI = erc20Contract.methods
             .approve(spender, amountToApprove)
+            .encodeABI();
+
+        const gasEstimated = await estimateGas(
+            publicKey1,
+            tokenAddress,
+            encodedABI
+        );
+
+        const tx = {
+            from: publicKey1,
+            gas: gasEstimated.gasLimit,
+            gasPrice: gasEstimated.gasPrice,
+            to: tokenAddress,
+            data: encodedABI,
+        };
+
+        const signedTx = await web3.eth.accounts.signTransaction(
+            tx,
+            privateKey1
+        );
+
+        await web3.eth.sendSignedTransaction(
+            signedTx.raw || signedTx.rawTransaction
+        );
+    },
+    sendERC20: async (tokenAddress, amountToSend, to) => {
+        const erc20Contract = new web3.eth.Contract(erc20ABI, tokenAddress);
+
+        const encodedABI = erc20Contract.methods
+            .transfer(to, amountToSend)
             .encodeABI();
 
         const gasEstimated = await estimateGas(

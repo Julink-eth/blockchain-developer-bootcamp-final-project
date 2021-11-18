@@ -8,11 +8,17 @@ const initialContext = {
     txnStatus: "NOT_SUBMITTED",
     setTxnStatus: () => {},
     userVaults: vaultsInfo.vaultTypes,
+    maiBalance: "0",
+    maiAllowance: "0",
     setVaultIds: () => {},
     addVaultId: () => {},
     setUserWalletCollateralAmount: () => {},
     setAllowance: () => {},
     setVault: () => {},
+    setMultiplicatorMax: () => {},
+    setMinCollateralPercentage: () => {},
+    setMaiBalance: () => {},
+    setMaiAllowance: () => {},
 };
 
 const appReducer = (state, { type, payload }) => {
@@ -22,11 +28,20 @@ const appReducer = (state, { type, payload }) => {
                 ...state,
                 isWalletConnectModalOpen: payload,
             };
-
         case "SET_TXN_STATUS":
             return {
                 ...state,
                 txnStatus: payload,
+            };
+        case "SET_MAI_BALANCE":
+            return {
+                ...state,
+                maiBalance: payload,
+            };
+        case "SET_MAI_ALLOWANCE":
+            return {
+                ...state,
+                maiAllowance: payload,
             };
         case "SET_USER_VAULTS_IDS":
             return update(state, {
@@ -49,6 +64,24 @@ const appReducer = (state, { type, payload }) => {
                 userVaults: {
                     [payload.indexVaultType]: {
                         userWalletAmount: { $set: payload.amount },
+                    },
+                },
+            });
+        case "SET_MULTIPLICATOR_MAX":
+            return update(state, {
+                userVaults: {
+                    [payload.indexVaultType]: {
+                        multiplicatorMax: { $set: payload.multiplicatorMax },
+                    },
+                },
+            });
+        case "SET_MIN_COLLATERAL_PERCENTAGE":
+            return update(state, {
+                userVaults: {
+                    [payload.indexVaultType]: {
+                        minCollateralPercentage: {
+                            $set: payload.minCollateralPercentage,
+                        },
                     },
                 },
             });
@@ -89,6 +122,14 @@ export const AppContextProvider = ({ children }) => {
         setTxnStatus: (status) => {
             dispatch({ type: "SET_TXN_STATUS", payload: status });
         },
+        maiBalance: store.maiBalance,
+        setMaiBalance: (maiBalance) => {
+            dispatch({ type: "SET_MAI_BALANCE", payload: maiBalance });
+        },
+        maiAllowance: store.maiAllowance,
+        setMaiAllowance: (maiAllowance) => {
+            dispatch({ type: "SET_MAI_ALLOWANCE", payload: maiAllowance });
+        },
         userVaults: store.userVaults,
         setVaultIds: (indexVaultType, vaultIds) => {
             dispatch({
@@ -106,6 +147,21 @@ export const AppContextProvider = ({ children }) => {
             dispatch({
                 type: "SET_USER_WALLET_COLLATERAL_AMOUNT",
                 payload: { indexVaultType, amount },
+            });
+        },
+        setMultiplicatorMax: (indexVaultType, multiplicatorMax) => {
+            dispatch({
+                type: "SET_MULTIPLICATOR_MAX",
+                payload: { indexVaultType, multiplicatorMax },
+            });
+        },
+        setMinCollateralPercentage: (
+            indexVaultType,
+            minCollateralPercentage
+        ) => {
+            dispatch({
+                type: "SET_MIN_COLLATERAL_PERCENTAGE",
+                payload: { indexVaultType, minCollateralPercentage },
             });
         },
         setAllowance: (indexVaultType, amount) => {

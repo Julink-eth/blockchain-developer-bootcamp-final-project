@@ -3,9 +3,10 @@ import React from "react";
 import { ethers } from "ethers";
 import { Web3ReactProvider } from "@web3-react/core";
 import { Route } from "react-router-dom";
-import MetamaskConnectButton from "./components/MetamaskConnectButton";
 import { AppContextProvider } from "./AppContext";
 import Home from "./pages/Home";
+import TransactionNotification from "./components/TransactionNotification";
+import Header from "./components/Header";
 
 function getLibrary(provider) {
     return new ethers.providers.Web3Provider(provider);
@@ -18,12 +19,22 @@ const App = () => {
                 <div
                     style={{
                         display: "flex",
-                        rowGap: 40,
+                        rowGap: 30,
                         flexDirection: "column",
+                        alignItems: "center",
+                        margin: -8,
                     }}
                 >
-                    <MetamaskConnectButton />
-                    <Route exact path="/" component={Home} />
+                    <TransactionNotification />
+                    <Header />
+                    <div
+                        style={{
+                            maxWidth: 900,
+                            width: "100%",
+                        }}
+                    >
+                        <Route exact path="/" component={Home} />
+                    </div>
                 </div>
             </Web3ReactProvider>
         </AppContextProvider>

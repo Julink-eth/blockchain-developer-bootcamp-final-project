@@ -1,6 +1,6 @@
 import React, { useState } from "react";
+import InputWithMax from "./InputWithMax";
 import { ButtonAction } from "./styled/Button";
-import { Input } from "./styled/Input";
 
 const InputWithButton = ({
     onClick,
@@ -8,6 +8,8 @@ const InputWithButton = ({
     style,
     onChange,
     disabled,
+    typeInput,
+    maxValue,
 }) => {
     const [value, setValue] = useState(undefined);
     return (
@@ -19,11 +21,13 @@ const InputWithButton = ({
                     flexDirection: "column",
                 }}
             >
-                <Input
-                    onChange={(event) => {
-                        setValue(event.target.value);
-                        onChange(event.target.value);
+                <InputWithMax
+                    onChange={(newValue) => {
+                        setValue(newValue);
+                        onChange(newValue);
                     }}
+                    type={typeInput}
+                    maxValue={maxValue}
                 />
                 <ButtonAction
                     onClick={() => {

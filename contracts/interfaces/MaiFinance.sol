@@ -8,7 +8,14 @@ interface IERC20StableCoin {
 
     function _minimumCollateralPercentage() external view returns (uint256);
 
+    function checkCollateralPercentage(uint256 vaultID)
+        external
+        view
+        returns (uint256);
+
     function vaultDebt(uint256 vaultId) external view returns (uint256);
+
+    function vaultCollateral(uint256 vaultId) external view returns (uint256);
 
     function payBackToken(uint256 vaultID, uint256 amount) external;
 

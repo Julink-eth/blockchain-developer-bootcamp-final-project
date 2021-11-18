@@ -1,6 +1,6 @@
 import { Card as BootstrapCard } from "react-bootstrap";
 import styled from "styled-components";
-import { colors } from "../theme";
+import { colors } from "../../theme";
 
 const Card = styled(BootstrapCard)`
     background-color: ${colors.lightGray};
@@ -11,6 +11,18 @@ const Card = styled(BootstrapCard)`
     border-color: ${colors.lightBlue};
     padding: 20px;
     box-sizing: border-box;
+`;
+
+export const CardHeader = styled.div`
+    background-color: ${colors.lightGray};
+    width: 100%;
+    border-color: ${colors.lightBlue};
+    padding: 20px;
+    box-sizing: border-box;
+    justify-content: space-between;
+    flex-direction: row;
+    display: flex;
+    cursor: ${({ expandable }) => (expandable ? "pointer" : "initial")};
 `;
 
 export default Card;
