@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.9;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {FlashLoanReceiverBase} from "./FlashLoanReceiverBase.sol";
 import {ILendingPoolAddressesProvider} from "./interfaces/ILendingPoolAddressesProvider.sol";
@@ -8,22 +9,24 @@ import {IUniswapV2Router} from "./interfaces/Uniswap.sol";
 import {IERC20StableCoin} from "./interfaces/IERC20StableCoin.sol";
 import {IVaultLongMaiFinance} from "./interfaces/IVaultLongMaiFinance.sol";
 
-abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
+abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase, Ownable {
     using SafeERC20 for IERC20;
 
     //Using Aave's lending pool for the flash loan
-    ILendingPoolAddressesProvider LENDING_POOL_PRODIVER =
+    ILendingPoolAddressesProvider constant lendingPoolProvider =
         ILendingPoolAddressesProvider(
             0xd05e3E715d945B59290df0ae8eF85c1BdB684744
         );
 
     //Tokens addresses used to make swaps
-    address USDC_ADDRESS = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174;
-    address MAI_ADDRESS = 0xa3Fa99A148fA48D14Ed51d610c367C61876997F1;
-    address WMATIC_ADDRESS = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
+    address constant usdcAddr = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174;
+    address constant maiAddr = 0xa3Fa99A148fA48D14Ed51d610c367C61876997F1;
+    address constant wmaticAddr = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
+    address constant qiAddr = 0x580A84C73811E1839F75d86d75d88cCa0c241fF4;
 
     //Swaps are executed on Quickswap
-    address QUICKSWAP_ROUTER = 0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff;
+    address constant quickswapRouter =
+        0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff;
 
     //The list of vault ids(Ids returned by Mai finance when creating the vault) owned by a user
     mapping(address => uint256[]) private vaults;
@@ -31,6 +34,29 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
     address public maiVault;
     //The collateral used in this vault
     address public collateral;
+
+    //This will keep track of the user debt by period
+    mapping(address => mapping(uint256 => uint256)) public userDebtByPeriod;
+    //The current user debt
+    mapping(address => uint256) public userDebt;
+    //The last block a user has been updated
+    mapping(address => uint256) public lastBlockUserUpdate;
+    //The last block a user has been updated
+    mapping(address => uint256) public currentUserBlockStart;
+    //This will keep track of the total debt by period
+    mapping(uint256 => uint256) public totalDebtByPeriod;
+    //This will keep track of Qi received by the contract be period
+    mapping(uint256 => uint256) public balanceRewardsByPeriod;
+    //Current total debt
+    uint256 public totalDebt = 0;
+    //Last block update
+    uint256 public lastBlockUpdate = 0;
+    //The number of blocks a period lasts
+    uint256 public constant blocksByPeriod = 7 days;
+    //Allow to know if a user has already claimed its reward for a specific period
+    mapping(address => uint256) public userLastClaimBlockStart;
+    //Block start number for the current period
+    uint256 public currentBlockStart;
 
     /**
      Will check if the caller actually owns the vaultId passed in parameter
@@ -60,21 +86,21 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
 
     event ReduceLong(uint256 vaultId, uint256 debtAmountToReduce);
 
-    event ClaimRewards(uint256 amountClaimed, uint256 nextClaimableBlock);
-
     event Deposit(uint256 vaultId, uint256 amount);
 
     event Repay(uint256 vaultId, uint256 amount);
 
-    event RewardAdded(uint256 reward);
+    event ClaimRewardsFor(address indexed user, uint256 claimed);
 
-    event RewardPaid(address indexed user, uint256 reward);
-
-    constructor(address _collateral, address _maiVault)
-        FlashLoanReceiverBase(LENDING_POOL_PRODIVER)
-    {
+    constructor(
+        address _collateral,
+        address _maiVault,
+        uint256 _blockStart
+    ) FlashLoanReceiverBase(lendingPoolProvider) {
         maiVault = _maiVault;
         collateral = _collateral;
+        currentBlockStart = _blockStart;
+        lastBlockUpdate = block.timestamp;
     }
 
     function createVault() external {
@@ -97,6 +123,7 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
         positiveAmount(amount)
     {
         require(amount > 0, "AMOUNT_ZERO");
+
         IERC20(collateral).safeTransferFrom(msg.sender, address(this), amount);
         depositInVault(vaultId, amount);
 
@@ -160,6 +187,8 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
             "NOT_ENOUGH_COLLATERAL"
         );
 
+        uint256 userDebtBefore = IERC20StableCoin(maiVault).vaultDebt(vaultId);
+
         IERC20(collateral).safeTransferFrom(
             msg.sender,
             address(this),
@@ -170,6 +199,10 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
         callFlashLoan(vaultId, longAmount, 0, initialDeposit);
         //The next operations happen in the function "executeOperation" which is called by
         //callFlashLoan once the asset the contract has received the loaned asset
+
+        //We keep track of the user debt for the airdropped rewards from Mai finance
+        uint256 userDebtAfter = IERC20StableCoin(maiVault).vaultDebt(vaultId);
+        updateRewards(msg.sender, userDebtAfter - userDebtBefore, true);
 
         emit LongAsset(vaultId, longAmount, initialDeposit);
     }
@@ -182,6 +215,9 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
         external
         ownsVault(vaultId, msg.sender)
     {
+        //We keep track of the user debt for the airdropped rewards from Mai finance
+        updateRewards(msg.sender, debtAmountToReduce, false);
+
         //Flash loan the number required of USDC, here the last argument is not used
         callFlashLoan(vaultId, debtAmountToReduce, 1, 0);
         //The next operations happen in the function "executeOperation" which is called by
@@ -206,14 +242,19 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
         ownsVault(vaultId, msg.sender)
         positiveAmount(amountToRepay)
     {
-        uint256 userDebt = IERC20StableCoin(maiVault).vaultDebt(vaultId);
-        require(amountToRepay <= userDebt, "AMOUNT_TOO_BIG");
-        IERC20(MAI_ADDRESS).safeTransferFrom(
+        uint256 _userDebt = IERC20StableCoin(maiVault).vaultDebt(vaultId);
+        require(amountToRepay <= _userDebt, "AMOUNT_TOO_BIG");
+
+        IERC20(maiAddr).safeTransferFrom(
             msg.sender,
             address(this),
             amountToRepay
         );
         repayDebt(vaultId, amountToRepay);
+
+        _userDebt = IERC20StableCoin(maiVault).vaultDebt(vaultId);
+        //We keep track of the user debt for the airdropped rewards from Mai finance
+        updateRewards(msg.sender, amountToRepay, false);
 
         emit Repay(vaultId, amountToRepay);
     }
@@ -223,7 +264,7 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
      the contract
      */
     function repayDebt(uint256 vaultId, uint256 amountToRepay) private {
-        IERC20(MAI_ADDRESS).safeIncreaseAllowance(maiVault, amountToRepay);
+        IERC20(maiAddr).safeIncreaseAllowance(maiVault, amountToRepay);
         IERC20StableCoin(maiVault).payBackToken(vaultId, amountToRepay);
     }
 
@@ -285,12 +326,12 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
         ) = abi.decode(params, (uint256, address, uint8, uint256, uint256));
 
         //Use borrowed USDC to swap for the longed collateral
-        IERC20(USDC_ADDRESS).safeIncreaseAllowance(QUICKSWAP_ROUTER, amountFL);
-        uint256[] memory amountsResult = IUniswapV2Router(QUICKSWAP_ROUTER)
+        IERC20(usdcAddr).safeIncreaseAllowance(quickswapRouter, amountFL);
+        uint256[] memory amountsResult = IUniswapV2Router(quickswapRouter)
             .swapTokensForExactTokens(
                 amountWanted,
                 amountFL,
-                getPathSwap(USDC_ADDRESS, collateral),
+                getPathSwap(usdcAddr, collateral),
                 address(this),
                 block.timestamp
             );
@@ -305,22 +346,19 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
 
         //Borrow the number of MAI needed to reimburse the flash loan + fees
         uint256 amountToBorrow = getAmountInMin(
-            MAI_ADDRESS,
-            USDC_ADDRESS,
+            maiAddr,
+            usdcAddr,
             amountFLWithFees
         );
         borrowMai(vaultId, amountToBorrow);
 
         //SWAP MAI for USDC
-        IERC20(MAI_ADDRESS).safeIncreaseAllowance(
-            QUICKSWAP_ROUTER,
-            amountToBorrow
-        );
-        amountsResult = IUniswapV2Router(QUICKSWAP_ROUTER)
+        IERC20(maiAddr).safeIncreaseAllowance(quickswapRouter, amountToBorrow);
+        amountsResult = IUniswapV2Router(quickswapRouter)
             .swapTokensForExactTokens(
                 amountFLWithFees,
                 amountToBorrow,
-                getPathSwap(MAI_ADDRESS, USDC_ADDRESS),
+                getPathSwap(maiAddr, usdcAddr),
                 address(this),
                 block.timestamp
             );
@@ -340,12 +378,12 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
         );
 
         //Use borrowed USDC to swap for MAI to repay the debt on MAI finance
-        IERC20(USDC_ADDRESS).safeIncreaseAllowance(QUICKSWAP_ROUTER, amountFL);
-        uint256[] memory amountsResult = IUniswapV2Router(QUICKSWAP_ROUTER)
+        IERC20(usdcAddr).safeIncreaseAllowance(quickswapRouter, amountFL);
+        uint256[] memory amountsResult = IUniswapV2Router(quickswapRouter)
             .swapTokensForExactTokens(
                 amountWanted,
                 amountFL,
-                getPathSwap(USDC_ADDRESS, MAI_ADDRESS),
+                getPathSwap(usdcAddr, maiAddr),
                 address(this),
                 block.timestamp
             );
@@ -359,19 +397,19 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
         //Withdraw required collateral from the vault to repay the flash loan
         uint256 amountInMax = getAmountInMin(
             collateral,
-            USDC_ADDRESS,
+            usdcAddr,
             amountFLWithFees
         );
 
         IERC20StableCoin(maiVault).withdrawCollateral(vaultId, amountInMax);
 
         //Swap the collateral for USDC to repay the loan + premium
-        IERC20(collateral).safeIncreaseAllowance(QUICKSWAP_ROUTER, amountInMax);
-        amountsResult = IUniswapV2Router(QUICKSWAP_ROUTER)
+        IERC20(collateral).safeIncreaseAllowance(quickswapRouter, amountInMax);
+        amountsResult = IUniswapV2Router(quickswapRouter)
             .swapTokensForExactTokens(
                 amountFLWithFees,
                 amountInMax,
-                getPathSwap(collateral, USDC_ADDRESS),
+                getPathSwap(collateral, usdcAddr),
                 address(this),
                 block.timestamp
             );
@@ -390,23 +428,19 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
         //Quote quickswap to know how much USDC we need to buy the right amount of collateral asset
         //We want to long an asset so we get the amount of USDC we need to get the desired amount of that asset
         uint256 amountInMin = getAmountInMin(
-            USDC_ADDRESS,
+            usdcAddr,
             collateral,
             amountWanted
         );
 
         if (operation == 1) {
             //We want to repay the MAI debt so we get the amount of USDC we need to get the MAI desired to be repay
-            amountInMin = getAmountInMin(
-                USDC_ADDRESS,
-                MAI_ADDRESS,
-                amountWanted
-            );
+            amountInMin = getAmountInMin(usdcAddr, maiAddr, amountWanted);
         }
 
         address receiverAddress = address(this);
         address[] memory assets = new address[](1);
-        assets[0] = USDC_ADDRESS;
+        assets[0] = usdcAddr;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = amountInMin;
         // 0 = no debt, 1 = stable, 2 = variable
@@ -466,7 +500,7 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
 
         path = getPathSwap(_tokenIn, _tokenOut);
 
-        uint256[] memory amountOutMins = IUniswapV2Router(QUICKSWAP_ROUTER)
+        uint256[] memory amountOutMins = IUniswapV2Router(quickswapRouter)
             .getAmountsOut(_amountIn, path);
         return amountOutMins[path.length - 1];
     }
@@ -483,7 +517,7 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
 
         path = getPathSwap(_tokenIn, _tokenOut);
 
-        uint256[] memory amountInMins = IUniswapV2Router(QUICKSWAP_ROUTER)
+        uint256[] memory amountInMins = IUniswapV2Router(quickswapRouter)
             .getAmountsIn(_amountOut, path);
         return amountInMins[0];
     }
@@ -496,13 +530,13 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
         address[] memory path;
 
         path = new address[](5);
-        path[0] = MAI_ADDRESS;
-        path[1] = WMATIC_ADDRESS;
-        path[2] = USDC_ADDRESS;
-        path[3] = WMATIC_ADDRESS;
+        path[0] = maiAddr;
+        path[1] = wmaticAddr;
+        path[2] = usdcAddr;
+        path[3] = wmaticAddr;
         path[4] = collateral;
 
-        uint256[] memory amountInMins = IUniswapV2Router(QUICKSWAP_ROUTER)
+        uint256[] memory amountInMins = IUniswapV2Router(quickswapRouter)
             .getAmountsIn(amount, path);
         return amountInMins[0];
     }
@@ -543,10 +577,10 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
     */
     function getPathSwap(address token1, address token2)
         public
-        view
+        pure
         returns (address[] memory)
     {
-        if (token1 == WMATIC_ADDRESS || token2 == WMATIC_ADDRESS) {
+        if (token1 == wmaticAddr || token2 == wmaticAddr) {
             address[] memory path = new address[](2);
             path[0] = token1;
             path[1] = token2;
@@ -556,7 +590,7 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
 
         address[] memory pathWMATIC = new address[](3);
         pathWMATIC[0] = token1;
-        pathWMATIC[1] = WMATIC_ADDRESS;
+        pathWMATIC[1] = wmaticAddr;
         pathWMATIC[2] = token2;
 
         return pathWMATIC;
@@ -579,5 +613,174 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase {
 
         //If this user does not own this vaultId revert transaction
         revert("USER_NOT_OWNER");
+    }
+
+    //Rewards functions
+
+    /**
+     To claim the pending reward for a user for a specific vault, the rewards are coming from the weekly distribution
+     from Mai finance in Qi rewards, a user will be able to claim only once every REWARD_PERIOD_NB_BLOCKS blocks
+     */
+    function claimRewardsFor(address user) external onlyOwner {
+        updateRewards(user, 0, true);
+
+        //We start from the previous period
+        uint256 toClaim = 0;
+        while (userLastClaimBlockStart[user] < currentBlockStart) {
+            if (totalDebtByPeriod[userLastClaimBlockStart[user]] > 0) {
+                uint256 claimablePercentage = (userDebtByPeriod[user][
+                    userLastClaimBlockStart[user]
+                ] * 1e18) / totalDebtByPeriod[userLastClaimBlockStart[user]];
+                uint256 _claimableRewards = (balanceRewardsByPeriod[
+                    userLastClaimBlockStart[user]
+                ] * claimablePercentage) / 1e18;
+                toClaim += _claimableRewards;
+            }
+            userLastClaimBlockStart[user] += blocksByPeriod;
+        }
+
+        if (toClaim > 0) {
+            IERC20(qiAddr).approve(address(this), toClaim);
+            IERC20(qiAddr).transferFrom(address(this), user, toClaim);
+        }
+
+        emit ClaimRewardsFor(user, toClaim);
+    }
+
+    /**
+     Returns the amount of rewards a user can claim
+     */
+    function claimableRewards(address user) external view returns (uint256) {
+        uint256 claimable = 0;
+        if (currentUserBlockStart[user] > 0) {
+            uint256 _currentUserBlockStart = userLastClaimBlockStart[user];
+            while (_currentUserBlockStart < currentBlockStart) {
+                if (totalDebtByPeriod[_currentUserBlockStart] > 0) {
+                    uint256 periodBlockStart = _currentUserBlockStart;
+                    uint256 periodBlockEnd = periodBlockStart + blocksByPeriod;
+                    uint256 countFrom = periodBlockStart >
+                        lastBlockUserUpdate[user]
+                        ? periodBlockStart
+                        : lastBlockUserUpdate[user];
+                    uint256 claimablePercentage = ((userDebtByPeriod[user][
+                        _currentUserBlockStart
+                    ] + userDebt[user] * (periodBlockEnd - countFrom)) * 1e18) /
+                        totalDebtByPeriod[_currentUserBlockStart];
+                    uint256 _claimableRewards = (balanceRewardsByPeriod[
+                        _currentUserBlockStart
+                    ] * claimablePercentage) / 1e18;
+                    claimable += _claimableRewards;
+                }
+                _currentUserBlockStart += blocksByPeriod;
+            }
+        }
+        return claimable;
+    }
+
+    /**
+     Everytime the debt for a user changes, the reward calculation updates since 
+     those are based on the user debt
+     */
+    function updateRewards(
+        address user,
+        uint256 debtDiff,
+        bool positive
+    ) private {
+        //Update period et user debt based on the debts up until this block
+        updatePeriods();
+        updateUserPeriods(user);
+
+        uint256 periodsSinceLastPeriodUpdate = (block.timestamp -
+            currentBlockStart) / blocksByPeriod;
+
+        //Update the block updates
+        currentBlockStart += blocksByPeriod * periodsSinceLastPeriodUpdate;
+        currentUserBlockStart[user] +=
+            blocksByPeriod *
+            periodsSinceLastPeriodUpdate;
+        lastBlockUpdate = block.timestamp;
+        lastBlockUserUpdate[user] = block.timestamp;
+
+        //Update the current total debt and user current debt
+        if (positive) {
+            totalDebt += debtDiff;
+            userDebt[user] += debtDiff;
+        } else {
+            totalDebt -= debtDiff;
+            userDebt[user] -= debtDiff;
+        }
+    }
+
+    /**
+     Update the periods debts
+     */
+    function updatePeriods() private {
+        uint256 periodsSinceLastPeriodUpdate = (block.timestamp -
+            currentBlockStart) / blocksByPeriod;
+        for (uint256 i = 0; i <= periodsSinceLastPeriodUpdate; i++) {
+            uint256 periodBlockStart = currentBlockStart + (i * blocksByPeriod);
+            uint256 periodBlockEnd = block.timestamp <=
+                periodBlockStart + blocksByPeriod
+                ? block.timestamp
+                : periodBlockStart + blocksByPeriod;
+            if (lastBlockUpdate <= periodBlockEnd) {
+                uint256 countFrom = periodBlockStart > lastBlockUpdate
+                    ? periodBlockStart
+                    : lastBlockUpdate;
+                uint256 countTo = block.timestamp > periodBlockEnd
+                    ? periodBlockEnd
+                    : block.timestamp;
+                totalDebtByPeriod[periodBlockStart] +=
+                    totalDebt *
+                    (countTo - countFrom);
+            }
+        }
+    }
+
+    /**
+     Update the periods debts for a user
+     */
+    function updateUserPeriods(address user) private {
+        if (currentUserBlockStart[user] == 0) {
+            currentUserBlockStart[user] = currentBlockStart;
+        }
+        if (userLastClaimBlockStart[user] == 0) {
+            userLastClaimBlockStart[user] = currentBlockStart;
+        }
+        if (lastBlockUserUpdate[user] == 0) {
+            lastBlockUserUpdate[user] = block.timestamp;
+        }
+        uint256 periodsSinceLastPeriodUpdate = (block.timestamp -
+            currentUserBlockStart[user]) / blocksByPeriod;
+        for (uint256 i = 0; i <= periodsSinceLastPeriodUpdate; i++) {
+            uint256 periodBlockStart = currentUserBlockStart[user] +
+                (i * blocksByPeriod);
+            uint256 periodBlockEnd = block.timestamp <=
+                periodBlockStart + blocksByPeriod
+                ? block.timestamp
+                : periodBlockStart + blocksByPeriod;
+            if (lastBlockUserUpdate[user] <= periodBlockEnd) {
+                uint256 countFrom = periodBlockStart > lastBlockUserUpdate[user]
+                    ? periodBlockStart
+                    : lastBlockUserUpdate[user];
+                uint256 countTo = block.timestamp > periodBlockEnd
+                    ? periodBlockEnd
+                    : block.timestamp;
+                userDebtByPeriod[user][periodBlockStart] +=
+                    userDebt[user] *
+                    (countTo - countFrom);
+            }
+        }
+    }
+
+    /**
+     Function called by an external script that will update the number of rewards
+     which the contract get by period to be then shared with users
+     */
+    function updateRewardsBalance(uint256 periodBlockStart, uint256 amount)
+        external
+        onlyOwner
+    {
+        balanceRewardsByPeriod[periodBlockStart] = amount;
     }
 }

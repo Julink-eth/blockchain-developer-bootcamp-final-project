@@ -1,3 +1,4 @@
+const { time } = require("@openzeppelin/test-helpers");
 const addresses = require("./contractAdresses/addresses.json");
 const utils = require("./utils/utils");
 const Web3 = require("web3");
@@ -6,6 +7,7 @@ const erc20ABI = require("./abis/erc20.json");
 const maiVaultABI = require("./abis/maiVault.json");
 
 const LinkVaultLong = artifacts.require("LinkVaultLong");
+const HelperAdmin = artifacts.require("HelperAdmin");
 
 /*
  * uncomment accounts to access the test accounts made available by the
@@ -19,7 +21,7 @@ contract("LinkVaultLong", function (accounts) {
     const amountBase = web3.utils.toWei("0.001");
     const amountToLong = web3.utils.toWei("0.0013");
 
-    it("should assert true", async function () {
+    it("should assert true if the contract is deployed", async function () {
         await LinkVaultLong.deployed();
         return assert.isTrue(true);
     });
@@ -127,6 +129,65 @@ contract("LinkVaultLong", function (accounts) {
 
         //We check if the new debt amount if smaller than the previous debt amount
         return assert.isTrue(debtAmountBN > newDebtAmountBN);
+    });
+
+    it("should be able to claim rewards", async function () {
+        const contract = await LinkVaultLong.deployed();
+        const helperAdminInstance = await HelperAdmin.deployed();
+        const erc20Contract = new web3.eth.Contract(
+            erc20ABI,
+            addresses.tokenAddresses.QI
+        );
+
+        //Send Qi to the contract (Simulate an airdrop from Mai Finance)
+        const allowance = web3.utils.toWei("1");
+        await utils.approveToken(
+            addresses.tokenAddresses.WMATIC,
+            allowance,
+            addresses.contractAddresses.QUICKSWAP
+        );
+
+        await utils.getTokens(
+            addresses.tokenAddresses.QI,
+            allowance,
+            allowance,
+            addresses.contractAddresses.QUICKSWAP
+        );
+
+        await utils.sendERC20(
+            addresses.tokenAddresses.QI,
+            allowance,
+            contract.address
+        );
+
+        const currentBlockStart = await contract.currentBlockStart();
+
+        await helperAdminInstance.updatePeriodReward(
+            contract.address,
+            currentBlockStart.toString(),
+            allowance
+        );
+
+        const balanceQiBefore = await erc20Contract.methods
+            .balanceOf(accounts[0])
+            .call();
+
+        await time.increaseTo(
+            (await time.latest()).add(time.duration.weeks(1))
+        );
+
+        await helperAdminInstance.claimRewards([contract.address]);
+
+        const balanceQiAfter = await erc20Contract.methods
+            .balanceOf(accounts[0])
+            .call();
+
+        const expected = web3.utils
+            .toBN(balanceQiAfter)
+            .sub(web3.utils.toBN(balanceQiBefore));
+
+        //The user is supposed to get all the rewards since he's the only one with a debt
+        return assert.isTrue(expected.toString() === allowance.toString());
     });
 
     it("should be able to repay the full debt amount", async function () {

@@ -22,6 +22,7 @@ const Header = () => {
                         gap: 10,
                     }}
                 >
+                    <ClaimButton />
                     <MetamaskConnectButton />
                 </div>
             </Card>

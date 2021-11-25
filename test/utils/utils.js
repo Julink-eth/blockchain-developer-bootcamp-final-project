@@ -1,3 +1,4 @@
+const { time } = require("@openzeppelin/test-helpers");
 const sushiswapABI = require("../abis/sushiswap.json");
 const addresses = require("../contractAdresses/addresses.json");
 const erc20ABI = require("../abis/erc20.json");
@@ -25,7 +26,7 @@ module.exports = {
                 amountToGet,
                 [addresses.tokenAddresses.WMATIC, tokenAddress],
                 publicKey1,
-                Math.floor(Date.now() / 1000) + 21660
+                (await time.latest()) + 3600
             )
             .encodeABI();
 
