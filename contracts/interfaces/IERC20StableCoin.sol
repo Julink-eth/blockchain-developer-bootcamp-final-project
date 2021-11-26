@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity 0.8.9;
 
 interface IERC20StableCoin {
     function depositCollateral(uint256 vaultID, uint256 amount) external;

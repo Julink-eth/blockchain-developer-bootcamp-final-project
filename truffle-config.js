@@ -18,7 +18,8 @@
  *
  */
 
-// const HDWalletProvider = require('@truffle/hdwallet-provider');
+const HDWalletProvider = require("@truffle/hdwallet-provider");
+require("dotenv").config();
 //
 // const fs = require('fs');
 // const mnemonic = fs.readFileSync(".secret").toString().trim();
@@ -43,8 +44,16 @@ module.exports = {
         //
         development: {
             host: "127.0.0.1", // Localhost (default: none)
-            port: 8545, // Standard Ethereum port (default: none)
+            port: 7545, // Standard Ethereum port (default: none)
             network_id: "*", // Any network (default: none)
+        },
+        mumbai: {
+            network_id: 80001,
+            provider: () =>
+                new HDWalletProvider(
+                    process.env.MNEMONIC,
+                    process.env.ALCHEMY_URL_MUMBAI
+                ),
         },
         // Another network with more advanced options...
         // advanced: {

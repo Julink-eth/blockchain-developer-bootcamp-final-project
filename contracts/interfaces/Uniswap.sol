@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity 0.8.9;
 
 interface IUniswapV2Router {
     function getAmountsOut(uint256 amountIn, address[] memory path)

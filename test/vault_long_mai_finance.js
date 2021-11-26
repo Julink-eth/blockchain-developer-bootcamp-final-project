@@ -160,11 +160,11 @@ contract("LinkVaultLong", function (accounts) {
             contract.address
         );
 
-        const currentBlockStart = await contract.currentBlockStart();
+        const currentPeriodStart = await contract.currentPeriodStart();
 
         await helperAdminInstance.updatePeriodReward(
             contract.address,
-            currentBlockStart.toString(),
+            currentPeriodStart.toString(),
             allowance
         );
 
