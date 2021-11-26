@@ -1,14 +1,14 @@
 {
   "files": {
-    "main.js": "/blockchain-developer-bootcamp-final-project/static/js/main.30ea5100.chunk.js",
-    "main.js.map": "/blockchain-developer-bootcamp-final-project/static/js/main.30ea5100.chunk.js.map",
+    "main.js": "/blockchain-developer-bootcamp-final-project/static/js/main.ab45b56f.chunk.js",
+    "main.js.map": "/blockchain-developer-bootcamp-final-project/static/js/main.ab45b56f.chunk.js.map",
     "runtime-main.js": "/blockchain-developer-bootcamp-final-project/static/js/runtime-main.b93e3183.js",
     "runtime-main.js.map": "/blockchain-developer-bootcamp-final-project/static/js/runtime-main.b93e3183.js.map",
     "static/css/2.5c17b9f1.chunk.css": "/blockchain-developer-bootcamp-final-project/static/css/2.5c17b9f1.chunk.css",
-    "static/js/2.bcf77002.chunk.js": "/blockchain-developer-bootcamp-final-project/static/js/2.bcf77002.chunk.js",
-    "static/js/2.bcf77002.chunk.js.map": "/blockchain-developer-bootcamp-final-project/static/js/2.bcf77002.chunk.js.map",
+    "static/js/2.3a63862c.chunk.js": "/blockchain-developer-bootcamp-final-project/static/js/2.3a63862c.chunk.js",
+    "static/js/2.3a63862c.chunk.js.map": "/blockchain-developer-bootcamp-final-project/static/js/2.3a63862c.chunk.js.map",
     "index.html": "/blockchain-developer-bootcamp-final-project/index.html",
-    "precache-manifest.55032ef800d4919f0e3e7bf156ecda19.js": "/blockchain-developer-bootcamp-final-project/precache-manifest.55032ef800d4919f0e3e7bf156ecda19.js",
+    "precache-manifest.035ac78107df891e387e7078361b6b5e.js": "/blockchain-developer-bootcamp-final-project/precache-manifest.035ac78107df891e387e7078361b6b5e.js",
     "service-worker.js": "/blockchain-developer-bootcamp-final-project/service-worker.js",
     "static/css/2.5c17b9f1.chunk.css.map": "/blockchain-developer-bootcamp-final-project/static/css/2.5c17b9f1.chunk.css.map",
     "static/media/metamask-logo.svg": "/blockchain-developer-bootcamp-final-project/static/media/metamask-logo.fd681d4a.svg"
@@ -16,7 +16,7 @@
   "entrypoints": [
     "static/js/runtime-main.b93e3183.js",
     "static/css/2.5c17b9f1.chunk.css",
-    "static/js/2.bcf77002.chunk.js",
-    "static/js/main.30ea5100.chunk.js"
+    "static/js/2.3a63862c.chunk.js",
+    "static/js/main.ab45b56f.chunk.js"
   ]
 }
