@@ -1,5 +1,4 @@
 import { useContract } from "./useContract";
-import LONG_CONTRACT_ABI from "../contracts/VaultLongMaiFinance.json";
 import IERC20_STABLECOIN_ABI from "../contracts/IERC20StableCoin.json";
 import useIsValidNetwork from "../hooks/useIsValidNetwork";
 import { useWeb3React } from "@web3-react/core";
@@ -14,10 +13,7 @@ export const useLongContract = (userVault) => {
         useERC20Contract(userVault);
     const vaultJson = require("../contracts/" + userVault.jsonName);
     const deployedNetwork = vaultJson.networks[chainId];
-    const longContract = useContract(
-        deployedNetwork.address,
-        LONG_CONTRACT_ABI.abi
-    );
+    const longContract = useContract(deployedNetwork.address, vaultJson.abi);
     const maiContract = useContract(
         userVault.maiVaultAddress,
         IERC20_STABLECOIN_ABI.abi
