@@ -4,6 +4,7 @@ import { useWeb3React } from "@web3-react/core";
 import { useAppContext } from "../AppContext";
 import useIsValidNetwork from "../hooks/useIsValidNetwork";
 import tokenAddresses from "../constants/tokenAddresses.json";
+import { getConfirmationsCount } from "../utils/utils";
 
 export const useERC20Contract = (
     userVault,
@@ -50,7 +51,7 @@ export const useERC20Contract = (
                     longContractAddress,
                     amount
                 );
-                await txn.wait(1);
+                await txn.wait(getConfirmationsCount(chainId));
                 if (tokenAddress === tokenAddresses.MAI) {
                     fetchMaiUserAllowance();
                 } else {

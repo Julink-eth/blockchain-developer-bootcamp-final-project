@@ -7,6 +7,8 @@ const initialContext = {
     setWalletConnectModal: () => {},
     txnStatus: "NOT_SUBMITTED",
     setTxnStatus: () => {},
+    contentError: undefined,
+    setContentError: () => {},
     userVaults: vaultsInfo.vaultTypes,
     maiBalance: "0",
     maiAllowance: "0",
@@ -32,6 +34,11 @@ const appReducer = (state, { type, payload }) => {
             return {
                 ...state,
                 txnStatus: payload,
+            };
+        case "SET_CONTENT_ERROR":
+            return {
+                ...state,
+                contentError: payload,
             };
         case "SET_MAI_BALANCE":
             return {
@@ -121,6 +128,10 @@ export const AppContextProvider = ({ children }) => {
         txnStatus: store.txnStatus,
         setTxnStatus: (status) => {
             dispatch({ type: "SET_TXN_STATUS", payload: status });
+        },
+        contentError: store.contentError,
+        setContentError: (str) => {
+            dispatch({ type: "SET_CONTENT_ERROR", payload: str });
         },
         maiBalance: store.maiBalance,
         setMaiBalance: (maiBalance) => {

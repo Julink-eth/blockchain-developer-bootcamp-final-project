@@ -7,12 +7,17 @@ import { AppContextProvider } from "./AppContext";
 import Home from "./pages/Home";
 import TransactionNotification from "./components/TransactionNotification";
 import Header from "./components/Header";
+import GlobalError from "./components/GlobalError";
 
 function getLibrary(provider) {
     return new ethers.providers.Web3Provider(provider);
 }
 
 const App = () => {
+    if (window.ethereum) {
+        window.ethereum.on("networkChanged", () => window.location.reload());
+    }
+
     return (
         <AppContextProvider>
             <Web3ReactProvider getLibrary={getLibrary}>
@@ -25,6 +30,7 @@ const App = () => {
                         margin: -8,
                     }}
                 >
+                    <GlobalError />
                     <TransactionNotification />
                     <Header />
                     <div

@@ -19,6 +19,7 @@ contract("LinkVaultLong", function (accounts) {
     web3 = new Web3(currentProvider);
 
     const amountBase = web3.utils.toWei("0.001");
+    //Long x1.3
     const amountToLong = web3.utils.toWei("0.0013");
 
     it("should assert true if the contract is deployed", async function () {
@@ -131,7 +132,7 @@ contract("LinkVaultLong", function (accounts) {
         return assert.isTrue(debtAmountBN > newDebtAmountBN);
     });
 
-    it("should be able to claim rewards", async function () {
+    it("should be able to claim rewards and update the reward balance in the contract", async function () {
         const contract = await LinkVaultLong.deployed();
         const helperAdminInstance = await HelperAdmin.deployed();
         const erc20Contract = new web3.eth.Contract(
@@ -172,6 +173,7 @@ contract("LinkVaultLong", function (accounts) {
             .balanceOf(accounts[0])
             .call();
 
+        //Simulate a week since the user can only claim only a week after it enters the protocol
         await time.increaseTo(
             (await time.latest()).add(time.duration.weeks(1))
         );
@@ -307,5 +309,18 @@ contract("LinkVaultLong", function (accounts) {
             balanceAfterBN.toString() === expected.toString() &&
                 collateralInMaiAfter.toString() === expected2.toString()
         );
+    });
+
+    it("should not be able to update the reward balances directly in the vault contract", async function () {
+        const contract = await LinkVaultLong.deployed();
+
+        let message = "";
+        try {
+            await contract.updateRewardsBalance("1638338400", "10000000000");
+        } catch (error) {
+            message = error.reason;
+        }
+
+        return assert.isTrue(message === "Ownable: caller is not the owner");
     });
 });

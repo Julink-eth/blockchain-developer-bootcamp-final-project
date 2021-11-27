@@ -47,13 +47,15 @@ module.exports = {
             port: 7545, // Standard Ethereum port (default: none)
             network_id: "*", // Any network (default: none)
         },
-        mumbai: {
-            network_id: 80001,
+        polygonMainnet: {
+            network_id: 137,
             provider: () =>
                 new HDWalletProvider(
                     process.env.MNEMONIC,
-                    process.env.ALCHEMY_URL_MUMBAI
+                    process.env.ALCHEMY_POLYGON_MAINNET
                 ),
+            from: "0xA05D3ef45Ac229Db5693CD19194f4b0FEFe6E457",
+            gasPrice: 40000000000,
         },
         // Another network with more advanced options...
         // advanced: {

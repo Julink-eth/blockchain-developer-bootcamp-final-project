@@ -8,7 +8,7 @@ require("dotenv").config();
 const publicKey1 = process.env.TEST_WALLET_PUBLIC_KEY;
 const privateKey1 = process.env.TEST_WALLET_PRIVATE_KEY;
 
-//To make it easier to get some tokens before testing
+//Some functions to make it easier to interact with external contracts sush as Routers to make swaps during the tests
 module.exports = {
     getTokens: async (
         tokenAddress,

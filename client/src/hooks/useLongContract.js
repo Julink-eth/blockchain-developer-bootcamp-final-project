@@ -4,7 +4,7 @@ import IERC20_STABLECOIN_ABI from "../contracts/IERC20StableCoin.json";
 import useIsValidNetwork from "../hooks/useIsValidNetwork";
 import { useWeb3React } from "@web3-react/core";
 import { useAppContext } from "../AppContext";
-import { getLiquidationPrice } from "../utils/utils";
+import { getConfirmationsCount, getLiquidationPrice } from "../utils/utils";
 import { useERC20Contract } from "./useERC20Contract";
 
 export const useLongContract = (userVault) => {
@@ -36,7 +36,7 @@ export const useLongContract = (userVault) => {
             try {
                 setTxnStatus("LOADING");
                 const txn = await longContract.createVault();
-                await txn.wait(1);
+                await txn.wait(getConfirmationsCount(chainId));
                 await fetchVaultIds();
                 setTxnStatus("COMPLETE");
             } catch (error) {
@@ -112,7 +112,7 @@ export const useLongContract = (userVault) => {
                     amount,
                     collateralAmountToUse
                 );
-                await txn.wait(1);
+                await txn.wait(getConfirmationsCount(chainId));
                 fetchVault(vaultId);
                 fetchTokenBalance();
                 fetchTokenAllowance();
@@ -129,7 +129,7 @@ export const useLongContract = (userVault) => {
             try {
                 setTxnStatus("LOADING");
                 const txn = await longContract.reduceLong(vaultId, debtToRepay);
-                await txn.wait(1);
+                await txn.wait(getConfirmationsCount(chainId));
                 fetchVault(vaultId);
                 setTxnStatus("COMPLETE");
             } catch (error) {
@@ -147,7 +147,7 @@ export const useLongContract = (userVault) => {
                     vaultId,
                     amount
                 );
-                await txn.wait(1);
+                await txn.wait(getConfirmationsCount(chainId));
                 fetchVault(vaultId);
                 fetchTokenBalance();
                 setTxnStatus("COMPLETE");
@@ -163,7 +163,7 @@ export const useLongContract = (userVault) => {
             try {
                 setTxnStatus("LOADING");
                 const txn = await longContract.deposit(vaultId, amount);
-                await txn.wait(1);
+                await txn.wait(getConfirmationsCount(chainId));
                 fetchVault(vaultId);
                 fetchTokenBalance();
                 setTxnStatus("COMPLETE");
@@ -179,7 +179,7 @@ export const useLongContract = (userVault) => {
             try {
                 setTxnStatus("LOADING");
                 const txn = await longContract.repay(vaultId, amount);
-                await txn.wait(1);
+                await txn.wait(getConfirmationsCount(chainId));
                 fetchVault(vaultId);
                 fetchTokenBalance();
                 fetchMaiBalance();

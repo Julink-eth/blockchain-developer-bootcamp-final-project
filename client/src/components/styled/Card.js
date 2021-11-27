@@ -1,8 +1,7 @@
-import { Card as BootstrapCard } from "react-bootstrap";
 import styled from "styled-components";
 import { colors } from "../../theme";
 
-const Card = styled(BootstrapCard)`
+const Card = styled.div`
     background-color: ${colors.lightGray};
     width: 100%;
     box-shadow: rgb(0 0 0 / 1%) 0px 0px 1px, rgb(0 0 0 / 4%) 0px 4px 8px,

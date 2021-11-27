@@ -22,6 +22,7 @@ const TransactionNotification = () => {
         return () => {
             mounted = false;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [txnStatus]);
 
     const getMessage = () => {

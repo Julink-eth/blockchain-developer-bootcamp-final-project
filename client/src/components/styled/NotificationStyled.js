@@ -18,3 +18,13 @@ export const NotificationContent = styled.div`
     border-radius: 10px;
     padding: 10px;
 `;
+
+export const GlobalErrorStyled = styled.div`
+    position: fixed;
+    width: 100%;
+    top: 0;
+    z-index: 9999;
+    background-color: ${colors.red};
+    padding: 10px;
+    text-align: center;
+`;

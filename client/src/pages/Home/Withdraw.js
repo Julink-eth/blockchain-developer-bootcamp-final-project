@@ -32,6 +32,7 @@ const Withdraw = ({ userVault, vaultId, style }) => {
         return () => {
             mounted = false;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [amountToWithdraw, userVault.vaults[vaultId].maxWithdrawableAmount]);
 
     const handleOnInputChange = async (amount) => {

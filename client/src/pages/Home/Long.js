@@ -32,6 +32,7 @@ const Long = ({ userVault, vaultId, style }) => {
         return () => {
             mounted = false;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [vaultId, collateralAmountToUse, amountToLong]);
 
     useEffect(() => {
