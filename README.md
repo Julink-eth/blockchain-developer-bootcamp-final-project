@@ -22,7 +22,7 @@ You can test out the whole protocol locally forking the polygon mainnet though (
 
 -   Run `npm install` in project root to install Truffle build and smart contract dependencies
 -   Run local testnet on port `7545` with network id setup to 1337 forking the polygon mainnet(I used alchemy api for the fork, you'll need an API Key for polygon mainnet) :
--   `ganache-cli --fork https://polygon-mainnet.g.alchemy.com/v2/[YOUR-API] -p 7545 --networkId 1337` (You can get an API key at https://dashboard.alchemyapi.io/)
+-   `ganache-cli --fork https://polygon-mainnet.g.alchemy.com/v2/[YOUR-API-KEY] -p 7545 --networkId 1337` (You can get an API key at https://dashboard.alchemyapi.io/)
 -   `truffle test`
 -   `development` network id is 1337, remember to change it in Metamask as well!
 
