@@ -59,7 +59,7 @@
         {
             "index": 4,
             "label": "AAVE",
-            "jsonName": "GhstVaultLong.json",
+            "jsonName": "AaveVaultLong.json",
             "vaultIds": [],
             "tokenAddress": "0xd6df932a45c0f255f85145f286ea0b292b21c90b",
             "maiVaultAddress": "0x87ee36f780ae843A78D5735867bc1c13792b7b11",

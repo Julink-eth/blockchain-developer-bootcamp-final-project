@@ -21,7 +21,7 @@ const ClaimButton = () => {
             const helperContract = new ethers.Contract(
                 deployedNetwork.address,
                 HELPER_ADMIN.abi,
-                library.getSigner(account)
+                library
             );
             const rewardsTotal = await helperContract.claimableRewards(
                 vaultAddresses
