@@ -42,6 +42,8 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase, Ownable {
     mapping(address => uint256) public userDebt;
     //The last time a user has been updated
     mapping(address => uint256) public lastUserUpdate;
+    //The last time a user has claimed his rewards
+    mapping(address => uint256) public lastUserClaim;
     //The last period start a user has been updated
     mapping(address => uint256) public currentUserPeriodStart;
     //This will keep track of the total debt by period
@@ -725,6 +727,7 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase, Ownable {
     function claimRewardsFor(address user) external onlyOwner {
         //We update the rewards variable
         updateRewards(user, 0, true);
+        lastUserClaim[user] = block.timestamp;
 
         //We start from the previous period
         uint256 toClaim = 0;
@@ -762,9 +765,9 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase, Ownable {
                 if (totalDebtByPeriod[_currentUserBlockStart] > 0) {
                     uint256 periodBlockStart = _currentUserBlockStart;
                     uint256 periodBlockEnd = periodBlockStart + blocksByPeriod;
-                    uint256 countFrom = periodBlockStart > lastUserUpdate[user]
+                    uint256 countFrom = periodBlockStart > lastUserClaim[user]
                         ? periodBlockStart
-                        : lastUserUpdate[user];
+                        : lastUserClaim[user];
                     uint256 claimablePercentage = ((userDebtByPeriod[user][
                         _currentUserBlockStart
                     ] + userDebt[user] * (periodBlockEnd - countFrom)) * 1e18) /
@@ -793,7 +796,7 @@ abstract contract VaultLongMaiFinanceBase is FlashLoanReceiverBase, Ownable {
         uint256 debtDiff,
         bool positive
     ) private {
-        //Update period et user debt based on the debts up until this timestamp
+        //Update period and user debt based on the debts up until this timestamp
         updatePeriods();
         updateUserPeriods(user);
 
