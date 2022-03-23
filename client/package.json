@@ -2,7 +2,7 @@
     "name": "client",
     "version": "0.1.0",
     "private": true,
-    "homepage": "https://sharkam.github.io/blockchain-developer-bootcamp-final-project/",
+    "homepage": "https://julink-eth.github.io/blockchain-developer-bootcamp-final-project/",
     "dependencies": {
         "@ethersproject/units": "^5.5.0",
         "@web3-react/core": "^6.1.9",
