@@ -2,7 +2,7 @@
 
 ## Deployed version url:
 
-https://sharkam.github.io/blockchain-developer-bootcamp-final-project/
+https://julink-eth.github.io/blockchain-developer-bootcamp-final-project/
 
 Warning! this front end uses the contracts deployed on polygon mainnet.
 I deployed on polygon mainnet because this dapp relies extensively on external contracts (Mai finance) and those contracts
